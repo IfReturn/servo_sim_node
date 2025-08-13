@@ -14,6 +14,12 @@ public:
         servo_position_pub_ = this->create_publisher<servo_sim::msg::ServoPosition>(
             "/servo/position", 10);
 
+        // Publishers for joint commands
+        horizontal_cmd_pub_ = this->create_publisher<std_msgs::msg::Float64>(
+            "/horizontal_joint_position_controller/commands", 10);
+        vertical_cmd_pub_ = this->create_publisher<std_msgs::msg::Float64>(
+            "/vertical_joint_position_controller/commands", 10);
+
         // Subscriber for joint states
         joint_state_position_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "/joint_states", 10,
@@ -59,6 +65,16 @@ public:
         timer_ = this->create_wall_timer(
             std::chrono::milliseconds(50),
             [this]() {
+                // Send joint commands
+                auto horizontal_msg = std_msgs::msg::Float64();
+                horizontal_msg.data = target_horizontal_;
+                horizontal_cmd_pub_->publish(horizontal_msg);
+                
+                auto vertical_msg = std_msgs::msg::Float64();
+                vertical_msg.data = target_vertical_;
+                vertical_cmd_pub_->publish(vertical_msg);
+                
+                // Publish current position
                 auto servo_position_msg = servo_sim::msg::ServoPosition();
                 servo_position_msg.horizontal = current_horizontal_;
                 servo_position_msg.vertical = current_vertical_;
@@ -70,6 +86,8 @@ public:
 private:
     // Publishers
     rclcpp::Publisher<servo_sim::msg::ServoPosition>::SharedPtr servo_position_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr horizontal_cmd_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr vertical_cmd_pub_;
     // Subscribers
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_position_sub_;
 

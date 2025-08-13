@@ -152,46 +152,63 @@
   <!-- Gazebo相机传感器 -->
   <gazebo reference="camera_link">
     <material>Gazebo/Red</material>
-    <sensor name="camera" type="camera">
-      <camera>
-          <horizontal_fov>1.047</horizontal_fov>
-          <image>
+    <sensor type="camera" name="camera">
+      <update_rate>30.0</update_rate>
+      <camera name="head">
+        <horizontal_fov>1.047</horizontal_fov>
+        <image>
           <width>640</width>
           <height>480</height>
-          </image>
-          <clip>
-          <near>0.1</near>
-          <far>100</far>
-          </clip>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>300</far>
+        </clip>
       </camera>
-      <always_on>1</always_on>
-      <update_rate>30</update_rate>
-      <visualize>true</visualize>
-      <topic>camera</topic>
-      <enable_metrics>true</enable_metrics>
+      <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+        <alwaysOn>true</alwaysOn>
+        <updateRate>0.0</updateRate>
+        <cameraName>camera</cameraName>
+        <imageTopicName>image_raw</imageTopicName>
+        <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+        <frameName>camera_link</frameName>
+      </plugin>
     </sensor>
   </gazebo>
+  
+  <ros2_control name="GazeboSystem" type="system">
+    <hardware>
+      <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+    </hardware>
+    <joint name="horizontal_joint">
+      <command_interface name="position">
+        <param name="min"> -1 </param>
+        <param name="max"> 1 </param>
+      </command_interface>
+      <state_interface name="position">
+        <param name="initial_value"> 0 </param>
+      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="vertical_joint">
+      <command_interface name="position">
+        <param name="min"> -1 </param>
+        <param name="max"> 1 </param>
+      </command_interface>
+      <state_interface name="position">
+        <param name="initial_value"> 0 </param>
+      </state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </ros2_control>
 
   <!-- Gazebo控制插件 -->
   <gazebo>
-    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
-      <topic>/servo/joint_states</topic>
-    </plugin>
-    
-    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
-      <joint_name>horizontal_joint</joint_name>
-      <topic>/servo/horizontal_joint/cmd_pos</topic>
-      <p_gain>10</p_gain>
-      <i_gain>0.1</i_gain>
-      <d_gain>0.01</d_gain>
-    </plugin>
-    
-    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
-      <joint_name>vertical_joint</joint_name>
-      <topic>/servo/vertical_joint/cmd_pos</topic>
-      <p_gain>5</p_gain>
-      <i_gain>0.1</i_gain>
-      <d_gain>0.01</d_gain>
+    <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+     <parameters>$(find servo_sim)/config/servo_controllers.yaml</parameters>
     </plugin>
   </gazebo>
 
