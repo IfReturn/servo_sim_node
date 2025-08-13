@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, ExecuteProcess, RegisterEventHandler
+from launch.event_handlers import OnProcessExit
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
-from launch.conditions import IfCondition
 from launch_ros.substitutions import FindPackageShare
 import xacro
 
@@ -21,49 +21,81 @@ def generate_launch_description():
     
     # Process the URDF file
     xacro_file = os.path.join(pkg_servo_sim, 'model', 'servo.xacro')
-
+    
+    
     # Gazebo
     gazebo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             PathJoinSubstitution([
-                FindPackageShare('ros_gz_sim'),
+                FindPackageShare('gazebo_ros'),
                 'launch',
-                'gz_sim.launch.py'
+                'gazebo.launch.py'
             ])
         ]),
         launch_arguments={
-            'gz_args': PathJoinSubstitution([
+            'world': PathJoinSubstitution([
                 FindPackageShare('servo_sim'),
                 'world',
                 'world.sdf'
             ])
         }.items()
     )
+    # Load controller configuration
+    controller_config = os.path.join(pkg_servo_sim, 'config', 'servo_controllers.yaml')
     
+    robot_description_config = xacro.process_file(xacro_file)
+    robot_description = {'robot_description': robot_description_config.toxml()}
+    robot_state_publisher_node = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[robot_description, {'use_sim_time': use_sim_time}]
+    )
     # Spawn robot in Gazebo
     spawn_entity = Node(
-        package='ros_gz_sim',
-        executable='create',
+        package='gazebo_ros',
+        executable='spawn_entity.py',
         arguments=[
             '-topic', 'robot_description',
-            '-name', 'servo_robot',
-            '-x', '0.0',
+            '-entity', 'servo_robot',
+            '-x', '-7.0',
             '-y', '0.0',
             '-z', '0.1'
         ],
         output='screen'
     )
     
-    # Bridge for topics
-    bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        parameters=[
-            {"config_file": os.path.join(pkg_servo_sim, 'config', 'bridge.config.yaml')}
-        ],
+    load_joint_state_controller = ExecuteProcess(
+        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
+             'joint_state_broadcaster'],
         output='screen'
     )
     
+    load_joint_position_controller = ExecuteProcess(
+        cmd=['ros2', 'control', 'load_controller', '--set-state', 'active',
+             'joint_position_controller'],
+        output='screen'
+    )
+
+    # RViz
+    rviz_config_file = os.path.join(pkg_servo_sim, 'rviz', 'servo.rviz')
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', rviz_config_file],
+        parameters=[{'use_sim_time': use_sim_time}],
+        condition=IfCondition(gui)
+    )
+   
+
+    servo_controller_node = Node(
+        package='servo_sim',
+        executable='servo_controller',
+        name='servo_controller',
+        parameters=[{'use_sim_time': use_sim_time}],
+        output='screen'
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument(
             'use_sim_time',
@@ -75,7 +107,22 @@ def generate_launch_description():
             default_value='true',
             description='Start GUI components (RViz, joint_state_publisher_gui)'
         ),
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=spawn_entity,
+                on_exit=[load_joint_state_controller],
+            )
+        ),
+        RegisterEventHandler(
+            event_handler=OnProcessExit(
+                target_action=load_joint_state_controller,
+                on_exit=[load_joint_position_controller],
+            )
+        ),
+
         gazebo,
+        robot_state_publisher_node,
         spawn_entity,
-        bridge,
+        servo_controller_node,
+        # rviz_node,
     ])

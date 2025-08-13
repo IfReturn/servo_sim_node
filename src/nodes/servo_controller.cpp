@@ -2,7 +2,7 @@
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/subscription.hpp>
-#include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/float64_multi_array.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <servo_sim/msg/servo_position.hpp>
@@ -15,11 +15,8 @@ public:
             "/servo/position", 10);
 
         // Publishers for joint commands
-        horizontal_cmd_pub_ = this->create_publisher<std_msgs::msg::Float64>(
-            "/horizontal_joint_position_controller/commands", 10);
-        vertical_cmd_pub_ = this->create_publisher<std_msgs::msg::Float64>(
-            "/vertical_joint_position_controller/commands", 10);
-
+        cmd_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "/joint_position_controller/commands", 10);
         // Subscriber for joint states
         joint_state_position_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
             "/joint_states", 10,
@@ -66,14 +63,11 @@ public:
             std::chrono::milliseconds(50),
             [this]() {
                 // Send joint commands
-                auto horizontal_msg = std_msgs::msg::Float64();
-                horizontal_msg.data = target_horizontal_;
-                horizontal_cmd_pub_->publish(horizontal_msg);
-                
-                auto vertical_msg = std_msgs::msg::Float64();
-                vertical_msg.data = target_vertical_;
-                vertical_cmd_pub_->publish(vertical_msg);
-                
+                auto position_msg = std_msgs::msg::Float64MultiArray();
+                position_msg.data.resize(2);
+                position_msg.data[0] = target_horizontal_;
+                position_msg.data[1] = target_vertical_;
+                cmd_pub_->publish(position_msg);
                 // Publish current position
                 auto servo_position_msg = servo_sim::msg::ServoPosition();
                 servo_position_msg.horizontal = current_horizontal_;
@@ -86,8 +80,9 @@ public:
 private:
     // Publishers
     rclcpp::Publisher<servo_sim::msg::ServoPosition>::SharedPtr servo_position_pub_;
-    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr horizontal_cmd_pub_;
-    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr vertical_cmd_pub_;
+
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr cmd_pub_;
+
     // Subscribers
     rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_position_sub_;
 
