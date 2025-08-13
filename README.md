@@ -12,14 +12,17 @@ This package provides a complete simulation environment for a servo gimbal consi
 
 ## Requirements
 
-- ROS2 (tested with jazzy)
-- Gazebo (gz-sim), not working with classic
+- ROS2 (tested with humble)
+- Gazebo Classic (11 or later)
 - RViz2
 - Standard ROS2 packages:
   - `robot_state_publisher`
   - `joint_state_publisher_gui`
-  - `ros_gz_sim`
-  - `ros_gz_bridge`
+  - `gazebo_ros`
+  - `gazebo_ros2_control`
+  - `controller_manager`
+  - `position_controllers`
+  - `joint_state_broadcaster`
 
 ## Installation
 
@@ -33,23 +36,12 @@ git clone https://github.com/IfReturn/servo_sim.git
 ```bash
 # make sure you have sourced your ROS2 workspace
 cd ~/ros2_ws
-rosdep install --from-paths src --ignore-src -r -y
-colcon build --packages-select servo_sim
+colcon build
 source install/setup.bash
 ```
 
 ## Usage
 
-### Display Only (RViz + Joint State Publisher)
-```bash
-ros2 launch servo_sim display.launch.py
-```
-
-### Full Simulation (Gazebo + Controls + Rviz)
-```bash
-ros2 launch servo_sim servo_complete.launch.py
-```
-### Basic Simulation (Gazebo Only)
 ```bash
 ros2 launch servo_sim servo_sim.launch.py
 ```
@@ -65,8 +57,7 @@ ros2 topic pub /servo/cmd_vel geometry_msgs/msg/Twist "{angular: {y: 0.5, z: 0.3
 
 - `/camera/image_raw` - Camera image stream
 - `/servo/cmd_vel` - Twist commands for manual control
-- `/servo/horizontal_joint/cmd_pos` - Direct horizontal joint position to gazebo
-- `/servo/vertical_joint/cmd_pos` - Direct vertical joint position to gazebo
+- `/joint_position_controller/commands` - Direct vertical joint position commands
 - `/servo/command` - Command for the servo joints
 - `/joint_states` - Current joint positions
 
@@ -76,12 +67,14 @@ ros2 topic pub /servo/cmd_vel geometry_msgs/msg/Twist "{angular: {y: 0.5, z: 0.3
 servo_sim/
 ├── CMakeLists.txt          # Build configuration
 ├── package.xml             # Package dependencies
+├── config/                 # Launch files
+│   └──servo_controllers.yaml # controller config
 ├── launch/                 # Launch files
-│   ├── display.launch.py   # RViz only
-│   ├── servo_complete.launch.py  # Full simulation
 │   └── servo_sim.launch.py # Basic simulation
 ├── model/                  # Robot models
 │   └── servo.xacro         # Main robot description
+├── msg/                    # Robot messages
+│   └── ServoPosition.msg   # Main robot message
 ├── rviz/                   # RViz configurations
 │   └── servo.rviz          # Default RViz config
 ├── src/                    # Source code
@@ -100,4 +93,5 @@ Apache 2.0
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## TODO
-- Add direct position control for joints, like real servo motors. 
+- Test with Gazebo Classic integration
+- Optimize control parameters for better performance 
